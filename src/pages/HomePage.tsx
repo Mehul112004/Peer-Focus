@@ -586,7 +586,7 @@ export default function HomePage() {
       <p className="mt-12 text-center text-xs text-zinc-400 dark:text-zinc-600">
         {user
           ? `Signed in as ${user.username} · Built for deep focus`
-          : "No account needed · Your data stays in the room · Built for deep focus"}
+          : "No account needed to join· Your data stays in the room · Built for deep focus"}
       </p>
     </div>
   );
