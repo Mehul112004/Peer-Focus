@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { getOrCreateUserId, getUserName, setUserName } from "@/lib/user";
+import { useAuth } from "@/context/AuthContext";
 import MemberCard from "@/components/MemberCard";
 import InviteModal from "@/components/InviteModal";
 import { v4 as uuidv4 } from "uuid";
@@ -90,11 +91,17 @@ export default function RoomPage() {
     }
   }, [roomId]);
 
+  const { user: authUser } = useAuth();
+
   useEffect(() => {
     loadData();
-    const name = getUserName();
-    if (name) setJoinName(name);
-  }, [loadData]);
+    if (authUser) {
+      setJoinName(authUser.display_name);
+    } else {
+      const name = getUserName();
+      if (name) setJoinName(name);
+    }
+  }, [loadData, authUser]);
 
   // Real-time Subscriptions
   useEffect(() => {

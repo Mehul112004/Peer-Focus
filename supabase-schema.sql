@@ -51,3 +51,20 @@ ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all on rooms" ON rooms FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on members" ON members FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on goals" ON goals FOR ALL USING (true) WITH CHECK (true);
+
+-- Users table (custom auth)
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE users;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on users" ON users FOR ALL USING (true) WITH CHECK (true);
