@@ -78,7 +78,19 @@ export default function RoomPage() {
       if (membersError) throw membersError;
 
       const now = Date.now();
+      const currentUserId = getOrCreateUserId();
       const adjustedMembers = membersData.map((m) => {
+        // Preserve the current user's local timer state
+        // (the local client is the source of truth for our own timer)
+        const localMe = membersRef.current.find((lm) => lm.id === m.id);
+        if (m.user_id === currentUserId && localMe) {
+          return {
+            ...m,
+            timer_remaining: localMe.timer_remaining,
+            is_paused: localMe.is_paused,
+          };
+        }
+        // For other peers, adjust timer based on elapsed time since last sync
         if (!m.is_paused && m.timer_remaining > 0) {
           const lastTick = new Date(m.last_tick_at).getTime();
           const elapsedSeconds = Math.floor((now - lastTick) / 1000);
@@ -277,6 +289,7 @@ export default function RoomPage() {
       .from("members")
       .update({
         is_paused: !member.is_paused,
+        timer_remaining: member.timer_remaining,
         last_tick_at: new Date().toISOString(),
       })
       .eq("id", memberId);
