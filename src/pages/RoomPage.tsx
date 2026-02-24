@@ -97,6 +97,30 @@ export default function RoomPage() {
     }
   }, [roomId]);
 
+  // Load only goals (without touching members/timer state)
+  const loadGoals = useCallback(async () => {
+    try {
+      const { data: membersData } = await supabase
+        .from("members")
+        .select("id")
+        .eq("room_id", roomId);
+
+      const memberIds = membersData?.map((m) => m.id) || [];
+      if (memberIds.length > 0) {
+        const { data: goalsData, error: goalsError } = await supabase
+          .from("goals")
+          .select("*")
+          .in("member_id", memberIds)
+          .order("created_at", { ascending: true });
+
+        if (goalsError) throw goalsError;
+        setGoals(goalsData);
+      }
+    } catch (err) {
+      console.error("Error loading goals:", err);
+    }
+  }, [roomId]);
+
   const { user: authUser } = useAuth();
 
   useEffect(() => {
@@ -130,7 +154,7 @@ export default function RoomPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "goals" },
-        () => loadData(), // Reload on any goal changes
+        () => loadGoals(), // Only reload goals, not members/timer
       )
       .subscribe();
 
@@ -138,7 +162,7 @@ export default function RoomPage() {
       supabase.removeChannel(membersChannel);
       supabase.removeChannel(goalsChannel);
     };
-  }, [roomId, loadData]);
+  }, [roomId, loadData, loadGoals]);
 
   // Client-side Timer tick
   useEffect(() => {
