@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import AnalogTimer from "./AnalogTimer";
 import GoalList from "./GoalList";
 
