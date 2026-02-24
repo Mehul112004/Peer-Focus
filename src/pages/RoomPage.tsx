@@ -76,7 +76,20 @@ export default function RoomPage() {
         .order("joined_at", { ascending: true });
 
       if (membersError) throw membersError;
-      setMembers(membersData);
+
+      const now = Date.now();
+      const adjustedMembers = membersData.map((m) => {
+        if (!m.is_paused && m.timer_remaining > 0) {
+          const lastTick = new Date(m.last_tick_at).getTime();
+          const elapsedSeconds = Math.floor((now - lastTick) / 1000);
+          return {
+            ...m,
+            timer_remaining: Math.max(0, m.timer_remaining - elapsedSeconds),
+          };
+        }
+        return m;
+      });
+      setMembers(adjustedMembers);
 
       // 3. Fetch Goals
       const memberIds = membersData.map((m) => m.id);
