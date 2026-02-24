@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_KEY } from "@/lib/supabase";
 import { getOrCreateUserId, getUserName, setUserName } from "@/lib/user";
 import { useAuth } from "@/context/AuthContext";
 import MemberCard from "@/components/MemberCard";
@@ -48,6 +48,12 @@ export default function RoomPage() {
 
   // We use refs to avoid recreating the interval on every state update
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const membersRef = useRef<Member[]>(members);
+
+  // Keep membersRef in sync
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
 
   // Load initial data
   const loadData = useCallback(async () => {
@@ -178,6 +184,46 @@ export default function RoomPage() {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
     };
   }, [currentMember, members]);
+
+  // Auto-pause timer on tab close / hide
+  useEffect(() => {
+    const pauseAndSync = () => {
+      const latestMembers = membersRef.current;
+      const me = latestMembers.find((m) => m.user_id === userId);
+      if (!me || me.is_paused) return;
+
+      // Use fetch with keepalive for reliable delivery during unload
+      const url = `${SUPABASE_URL}/rest/v1/members?id=eq.${me.id}`;
+      const headers = {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      };
+      const body = JSON.stringify({
+        is_paused: true,
+        timer_remaining: me.timer_remaining,
+        last_tick_at: new Date().toISOString(),
+      });
+
+      fetch(url, {
+        method: "PATCH",
+        headers,
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    };
+
+    const handleBeforeUnload = () => {
+      pauseAndSync();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [userId]);
 
   const handleTogglePause = async (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
