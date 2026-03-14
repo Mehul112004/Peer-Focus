@@ -190,19 +190,31 @@ export default function RoomPage() {
   }, [roomId, loadData, loadGoals]);
 
   // Client-side Timer tick
+  const lastTickTimeRef = useRef<number>(Date.now());
+
   useEffect(() => {
     const tickInterval = setInterval(() => {
-      setMembers((prevMembers) =>
-        prevMembers.map((m) => {
-          if (!m.is_paused && m.timer_remaining > 0) {
-            return {
-              ...m,
-              timer_remaining: Math.max(0, m.timer_remaining - 1),
-            };
-          }
-          return m;
-        }),
-      );
+      const now = Date.now();
+      const deltaMs = now - lastTickTimeRef.current;
+      const deltaSeconds = Math.floor(deltaMs / 1000);
+
+      // Only update state if at least 1 second has passed
+      if (deltaSeconds > 0) {
+        lastTickTimeRef.current = now - (deltaMs % 1000); // Keep remainder for next tick
+
+        setMembers((prevMembers) =>
+          prevMembers.map((m) => {
+            if (!m.is_paused && m.timer_remaining > 0) {
+              return {
+                ...m,
+                // Subtract actual elapsed seconds, catching up if browser was asleep
+                timer_remaining: Math.max(0, m.timer_remaining - deltaSeconds),
+              };
+            }
+            return m;
+          }),
+        );
+      }
     }, 1000);
 
     return () => clearInterval(tickInterval);
@@ -210,12 +222,10 @@ export default function RoomPage() {
 
   // Sync to database
   useEffect(() => {
-    if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-
-    syncIntervalRef.current = setInterval(async () => {
-      if (!currentMember) return;
-      // Find the LATEST state from the members array
-      const latestMe = members.find((m) => m.id === currentMember.id);
+    const syncInterval = setInterval(async () => {
+      // Find the LATEST state using membersRef instead of unstable dependencies
+      const latestMembers = membersRef.current;
+      const latestMe = latestMembers.find((m) => m.user_id === userId);
       if (!latestMe) return;
 
       if (!latestMe.is_paused) {
@@ -229,10 +239,8 @@ export default function RoomPage() {
       }
     }, 5000); // Sync every 5 seconds to reduce rate limiting
 
-    return () => {
-      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-    };
-  }, [currentMember, members]);
+    return () => clearInterval(syncInterval);
+  }, [userId]);
 
   // Auto-pause timer on tab close / hide
   useEffect(() => {
